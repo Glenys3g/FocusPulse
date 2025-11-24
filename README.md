@@ -45,7 +45,7 @@ El reporte incluye:
 - Historial de cambios de estado con rangos horarios.
 
 ## 🛠️ Requisitos
-- .NET Framework 4.8 o superior / .NET 6+
+- .NET 8
 - Windows Forms
 - [iTextSharp](https://www.nuget.org/packages/iTextSharp/) para exportación a PDF
 
