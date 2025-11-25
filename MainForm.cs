@@ -2,8 +2,6 @@
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.Window;
 using Button = System.Windows.Forms.Button;
 using TextBox = System.Windows.Forms.TextBox;
 using ToolTip = System.Windows.Forms.ToolTip;
@@ -37,7 +35,7 @@ namespace InactivityDetector
             this.Height = 230;
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.None;
-            this.BackColor = Color.FromArgb(30, 30, 30); // Dark theme
+            this.BackColor = Color.FromArgb(30, 30, 30);
             this.Opacity = 0.95;
             this.TopMost = true;
             this.DoubleBuffered = true;
@@ -94,19 +92,24 @@ namespace InactivityDetector
             pauseButton.Location = new Point(this.Width / 2 - pauseButton.Width / 2, this.Height - pauseButton.Height - 30);
             pauseButton.Click += (s, e) => tracker.TogglePause();
 
-            // Crear el panel de bloqueo
-            bloqueoPanel = new Panel();
-            bloqueoPanel.Dock = DockStyle.Fill;
-            bloqueoPanel.BackColor = Color.Black;
-            bloqueoPanel.Visible = false; // oculto por defecto
+            // Panel de bloqueo
+            bloqueoPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Black,
+                Visible = false
+            };
 
-            mensajeLabel = new Label();
-            mensajeLabel.Text = "Tiempo de descanso obligatorio: 10 minutos";
-            mensajeLabel.ForeColor = Color.White;
-            mensajeLabel.Font = new Font("Arial", 24, FontStyle.Bold);
-            mensajeLabel.Dock = DockStyle.Fill;
-            mensajeLabel.TextAlign = ContentAlignment.MiddleCenter;
+            mensajeLabel = new Label
+            {
+                Text = "Tiempo de descanso obligatorio: 10 minutos",
+                ForeColor = Color.White,
+                Font = new Font("Arial", 24, FontStyle.Bold),
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
 
+            // Botón de cerrar
             closeButton = new Button
             {
                 Text = "X",
@@ -120,13 +123,10 @@ namespace InactivityDetector
             closeButton.FlatAppearance.BorderSize = 0;
             closeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(50, 50, 50);
             closeButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(70, 70, 70);
-
-            // Ubicar en la esquina superior derecha
             closeButton.Location = new Point(this.Width - closeButton.Width - 5, 5);
-
-            // Acción al hacer clic
             closeButton.Click += (s, e) => this.Close();
 
+            // Botón de exportar
             exportButton = new Button
             {
                 Text = "📄",
@@ -141,6 +141,8 @@ namespace InactivityDetector
             exportButton.Location = new Point(200, this.Height - 50);
 
             tracker = new FocusPulse();
+            tracker.SetupGlobalHooks();   // Activar hooks globales para detectar actividad
+            tracker.RegistrarActividad(); // Inicializar como activo
 
             exportButton.Click += (s, e) =>
             {
@@ -158,26 +160,22 @@ namespace InactivityDetector
                 }
             };
 
+            // Configuración de margen de inactividad
             margenTextBox = new TextBox
             {
-                Text = "10", // valor por defecto en segundos
+                Text = "10",
                 Width = 60,
                 Location = new Point(10, this.Height - 90),
                 Font = new Font("Segoe UI", 12),
                 ForeColor = Color.Black,
                 Visible = false
             };
-
             margenTextBox.KeyPress += (s, e) =>
             {
-                // Permitir solo dígitos y teclas de control (ej. Backspace)
                 if (!char.IsControl(e.KeyChar) && !char.IsDigit(e.KeyChar))
-                {
-                    e.Handled = true; // bloquea la tecla
-                }
+                    e.Handled = true;
             };
 
-            // Botón para aplicar margen
             aplicarMargenButton = new Button
             {
                 Text = "Aplicar margen",
@@ -188,7 +186,7 @@ namespace InactivityDetector
                 BackColor = Color.Transparent,
                 ForeColor = Color.White,
                 TabStop = false,
-                Visible = false // oculto por defecto
+                Visible = false
             };
             aplicarMargenButton.FlatAppearance.BorderSize = 0;
             aplicarMargenButton.Click += (s, e) =>
@@ -221,23 +219,18 @@ namespace InactivityDetector
             configurarButton.FlatAppearance.BorderSize = 0;
             configurarButton.Click += (s, e) =>
             {
-                // Al pulsar, mostramos/ocultamos los controles
                 margenTextBox.Visible = !margenTextBox.Visible;
                 aplicarMargenButton.Visible = !aplicarMargenButton.Visible;
             };
 
-            // Agregar controles al formulario
+            // Agregar controles
             Controls.Add(configurarButton);
             Controls.Add(margenTextBox);
             Controls.Add(aplicarMargenButton);
-
-            // Ajustar posición al redimensionar
-            
-
             Controls.Add(exportButton);
 
             bloqueoPanel.Controls.Add(mensajeLabel);
-            this.Controls.Add(bloqueoPanel);
+            Controls.Add(bloqueoPanel);
 
             Controls.Add(pauseButton);
             Controls.Add(closeButton);
@@ -245,50 +238,44 @@ namespace InactivityDetector
             Controls.Add(activeTimeLabel);
             Controls.Add(titleLabel);
 
+            // Drag del formulario
             EnableDrag(this);
             EnableDrag(titleLabel);
             EnableDrag(activeTimeLabel);
             EnableDrag(inactiveTimeLabel);
             EnableDrag(pauseButton);
 
+            // Suscripción a eventos del tracker
             tracker.OnTimeUpdated += UpdateLabels;
             tracker.OnPauseChanged += UpdatePauseButton;
+            tracker.BloqueoNecesario += MostrarBloqueo;
+            tracker.BloqueoFinalizado += OcultarBloqueo;
 
-            toolTip = new ToolTip();
-
-            // Opcional: configurar estilo del tooltip
-            toolTip.AutoPopDelay = 5000;   // tiempo visible (ms)
-            toolTip.InitialDelay = 500;    // retardo antes de aparecer (ms)
-            toolTip.ReshowDelay = 200;     // retardo entre apariciones
-            toolTip.ShowAlways = true;     // se muestra incluso si el form no está activo
-
-            // Asignar tooltips a los botones
+            // Tooltips
+            toolTip = new ToolTip
+            {
+                AutoPopDelay = 5000,
+                InitialDelay = 500,
+                ReshowDelay = 200,
+                ShowAlways = true
+            };
             toolTip.SetToolTip(pauseButton, "Pausar/Reanudar el contador");
             toolTip.SetToolTip(closeButton, "Cerrar la aplicación");
             toolTip.SetToolTip(exportButton, "Exportar reporte a PDF");
             toolTip.SetToolTip(configurarButton, "Mostrar configuración de margen de inactividad");
             toolTip.SetToolTip(aplicarMargenButton, "Aplicar el margen de inactividad definido");
 
-            //this.Resize += (s, e) =>
-            //{
-            //    UpdateCircularRegion();
-            //    pauseButton.Location = new Point(this.Width / 2 - pauseButton.Width / 2, this.Height - pauseButton.Height - 30);
-            //};
-
+            // Redimensionar
             this.Resize += (s, e) =>
             {
                 UpdateCircularRegion();
                 pauseButton.Location = new Point(this.Width / 2 - pauseButton.Width / 2, this.Height - pauseButton.Height - 30);
-                //configurarButton.Location = new Point(10, this.Height - 140);
                 margenTextBox.Location = new Point(10, this.Height - 90);
                 aplicarMargenButton.Location = new Point(80, this.Height - 95);
+                exportButton.Location = new Point(this.Width - 50, this.Height - 50);
+                configurarButton.Location = new Point(this.Width - 90, this.Height - 50);
+                closeButton.Location = new Point(this.Width - closeButton.Width - 5, 5);
             };
-
-            tracker.SetupGlobalHooks();
-            tracker.SetupUITimer();
-
-            tracker.BloqueoNecesario += MostrarBloqueo;
-            tracker.BloqueoFinalizado += OcultarBloqueo;
         }
 
         private void MostrarBloqueo()
@@ -316,7 +303,6 @@ namespace InactivityDetector
         private void UpdateCircularRegion()
         {
             using var path = new GraphicsPath();
-            //path.AddEllipse(0, 0, this.Width, this.Height);
             path.AddRectangle(new Rectangle(0, 0, this.Width, this.Height));
             this.Region = new Region(path);
         }
